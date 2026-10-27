@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>対策書編集アプリ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Maru+Gothic:wght@500;700;900&family=BIZ+UDGothic:wght@700&display=swap');
+  :root {
+    --paper: #FBF3E3; --paper-deep: #F4E7CC; --ink: #4A3427; --ink-soft: #8A7460;
+    --coral: #FF6B5B; --coral-deep: #E2503F; --mint: #35CFA0; --mint-deep: #1FA582;
+    --yellow: #FFC93C; --sky: #57B9EE; --sky-deep: #2E93CC;
+    --stamp-red: #1A1A1A;
+    --sans: "Zen Maru Gothic", -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+    --hand: "Yomogi", "Zen Maru Gothic", sans-serif;
+    --mark: "BIZ UDGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--paper); font-family: var(--sans); color: var(--ink); }
+  #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  header {
+    background: var(--paper-deep); padding: 10px 18px; display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; border-bottom: 4px solid var(--coral);
+  }
+  header h1 {
+    font-family: var(--hand); font-size: 23px; font-weight: 400; margin: 0; white-space: nowrap;
+    color: var(--coral-deep); -webkit-text-stroke: 0.9px var(--coral-deep);
+  }
+  #fileLabel { font-size: 12px; color: var(--ink-soft); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spacer { flex: 1; }
+
+  button {
+    font-family: var(--sans); font-weight: 700; font-size: 13px; border: 2.5px solid var(--ink);
+    background: var(--sky); color: var(--ink); padding: 7px 15px; border-radius: 16px 20px 18px 22px;
+    cursor: pointer; box-shadow: 3px 4px 0 rgba(74,52,39,0.28);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+  }
+  button:hover:not(:disabled) { background: var(--sky-deep); color: white; }
+  button:active:not(:disabled) { transform: translate(2px, 3px); box-shadow: 1px 1px 0 rgba(74,52,39,0.28); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  button.primary { background: var(--coral); border-color: var(--coral-deep); color: white; box-shadow: 3px 4px 0 var(--coral-deep); }
+  button.primary:hover:not(:disabled) { background: var(--coral-deep); }
+  button.ghost { background: var(--paper); border-color: var(--ink-soft); box-shadow: 3px 4px 0 rgba(74,52,39,0.18); }
+  button.ghost:hover:not(:disabled) { background: var(--paper-deep); color: var(--ink); }
+  input[type="file"] { display: none; }
+
+  /* Stamp palette */
+  #toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 18px;
+    background: var(--paper); border-bottom: 3px solid var(--ink);
+  }
+  .tool {
+    min-width: 52px; height: 52px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
+    background: white; border-color: var(--ink-soft); box-shadow: 3px 4px 0 rgba(74,52,39,0.18);
+    font-family: var(--mark); font-size: 24px; color: var(--stamp-red); position: relative;
+  }
+  .tool:hover:not(:disabled) { background: #FFF6F0; color: var(--stamp-red); }
+  .tool.active { background: var(--yellow); border-color: var(--ink); box-shadow: 3px 4px 0 var(--ink); }
+  .tool.active:hover { background: var(--yellow); color: var(--stamp-red); }
+  .tool kbd {
+    position: absolute; top: 2px; right: 5px; font-family: var(--sans); font-size: 9.5px; color: var(--ink-soft); font-weight: 700;
+  }
+  .tool .boxed { border: 2.5px solid currentColor; padding: 1px 6px; font-size: 15px; line-height: 1.25; }
+  .tool.word { font-family: var(--sans); font-size: 14px; color: var(--ink); }
+  .tool.word:hover:not(:disabled) { color: var(--ink); }
+  .group.off { opacity: 0.35; pointer-events: none; }
+  .sep { width: 2px; height: 34px; background: var(--paper-deep); border-radius: 2px; margin: 0 4px; }
+  .group { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+  .swatch {
+    width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2.5px solid var(--paper);
+    box-shadow: 0 0 0 2px var(--ink-soft);
+  }
+  .swatch.active { box-shadow: 0 0 0 3px var(--ink); }
+  .swatch:hover:not(:disabled) { filter: brightness(1.1); }
+  .swatch:active:not(:disabled) { transform: none; box-shadow: 0 0 0 3px var(--ink); }
+  input[type="range"] { width: 110px; accent-color: var(--coral); }
+  .sizeBox { display: inline-flex; align-items: center; gap: 3px; color: var(--ink); }
+  #sizeVal {
+    width: 3.4em; font: 700 14px var(--sans); text-align: center; color: var(--ink); padding: 4px 2px;
+    border: 2px solid var(--ink-soft); border-radius: 8px; background: white; font-variant-numeric: tabular-nums;
+  }
+  #sizeVal::-webkit-inner-spin-button { display: none; }
+  #sizeVal { -moz-appearance: textfield; }
+  .step { width: 30px; height: 30px; padding: 0; font-size: 17px; line-height: 1; border-radius: 9px; }
+  label.chk { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: var(--ink); }
+
+  main { flex: 1; position: relative; display: flex; min-height: 0; }
+  #canvasZone {
+    flex: 1; overflow: auto; padding: 32px; background: #EFE1BE;
+    background-image: linear-gradient(#E3D2A4 1px, transparent 1px), linear-gradient(90deg, #E3D2A4 1px, transparent 1px);
+    background-size: 28px 28px; display: flex; align-items: flex-start;
+  }
+  #canvasStack {
+    position: relative; margin: 0 auto; flex-shrink: 0; line-height: 0; background: white;
+    border: 3px solid var(--ink); border-radius: 6px; box-shadow: 6px 8px 0 rgba(74,52,39,0.22);
+  }
+  #canvasStack canvas { display: block; }
+  #overlayCanvas { position: absolute; left: 0; top: 0; touch-action: none; }
+  #emptyState {
+    margin: auto; max-width: 420px; text-align: center; background: var(--paper); border: 3px solid var(--ink);
+    border-radius: 18px 22px 20px 24px; padding: 28px 26px; box-shadow: 6px 8px 0 rgba(74,52,39,0.22); line-height: 1.75;
+  }
+  #emptyState p { margin: 0 0 16px; font-size: 14px; }
+  #dropHint {
+    display: none; position: absolute; inset: 12px; border: 4px dashed var(--coral); border-radius: 18px;
+    background: rgba(255,107,91,0.1); align-items: center; justify-content: center; font-size: 22px;
+    font-family: var(--hand); color: var(--coral-deep); pointer-events: none; z-index: 40;
+  }
+  #pageNav {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #FFF8E8;
+    padding: 6px 14px; border-radius: 22px; display: none; align-items: center; gap: 10px; font-size: 13px; z-index: 20;
+  }
+  #pageNav button { padding: 4px 10px; background: transparent; border: none; color: #FFF8E8; font-size: 15px; box-shadow: none; }
+  #pageNav button:hover:not(:disabled) { color: var(--yellow); background: transparent; }
+  .navW { display: inline-block; min-width: 3.6em; text-align: center; font-variant-numeric: tabular-nums; }
+  #hint {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(74,52,39,0.88); color: #FFF8E8;
+    font-size: 12px; padding: 5px 14px; border-radius: 14px; pointer-events: none; z-index: 20; display: none; white-space: nowrap;
+  }
+  .textEditor {
+    position: absolute; z-index: 30; font-family: var(--mark); font-weight: 700; line-height: 1.25; padding: 0; margin: 0;
+    border: 2px dashed var(--sky-deep); background: rgba(255,255,255,0.92); outline: none; resize: none; overflow: hidden;
+    white-space: pre; min-width: 2em;
+  }
+  #toast {
+    position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: var(--mint-deep); color: white;
+    padding: 10px 20px; border-radius: 16px; font-weight: 700; font-size: 14px; display: none; z-index: 60;
+    box-shadow: 3px 4px 0 rgba(74,52,39,0.3);
+  }
+  #toast.err { background: var(--coral-deep); }
+  @media (max-width: 760px) { #canvasZone { padding: 14px; } .tool { min-width: 46px; height: 46px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>対策書編集アプリ</h1>
+    <span id="fileLabel"></span>
+    <div class="spacer"></div>
+    <button id="btnUndo" class="ghost" title="一つ前に戻す（Ctrl+Z）" disabled>↺ 戻る</button>
+    <button id="btnRedo" class="ghost" title="やり直す（Ctrl+Y）" disabled>↻ 進む</button>
+    <button id="btnOpen">PDFを開く</button>
+    <input type="file" id="fileInput" accept="application/pdf">
+    <button id="btnSave" class="primary" disabled>PDFを保存</button>
+  </header>
+
+  <div id="toolbar">
+    <button class="tool word" data-tool="select" title="選択・移動（Esc）。ダブルクリックで文字を編集、Deleteで削除">↖ 選択</button>
+    <div class="sep"></div>
+    <button class="tool" data-tool="zumi" title="「済」を押す"><kbd>1</kbd>済</button>
+    <button class="tool" data-tool="maru" title="「〇」を押す"><kbd>2</kbd>〇</button>
+    <button class="tool" data-tool="bar" title="「－」を押す"><kbd>3</kbd>－</button>
+    <button class="tool" data-tool="check" title="「レ」を押す"><kbd>4</kbd>レ</button>
+    <button class="tool" data-tool="approve" title="「電子承認」を押す"><kbd>5</kbd><span class="boxed">電子承認</span></button>
+    <button class="tool word" data-tool="text" title="クリックした場所に自由に文字を書く"><kbd>6</kbd>🖊 文字</button>
+    <button class="tool word" data-tool="erase" title="ドラッグで囲んだ範囲を白で塗りつぶして消す"><kbd>7</kbd>🧽 消しゴム</button>
+    <div class="sep"></div>
+    <div class="group" id="colorGroup">色
+      <button class="swatch" data-color="red" style="background:#D7261E" title="赤" aria-label="赤"></button>
+      <button class="swatch" data-color="black" style="background:#1A1A1A" title="黒" aria-label="黒"></button>
+      <button class="swatch" data-color="blue" style="background:#1D4FC4" title="青" aria-label="青"></button>
+    </div>
+    <div class="sep"></div>
+    <div class="group" id="sizeGroup">大きさ
+      <input type="range" id="sizeSlider" min="4" max="150" step="1" value="18">
+      <span class="sizeBox">
+        <button class="ghost step" id="sizeMinus" title="1pt小さく" aria-label="1pt小さく">－</button>
+        <input type="number" id="sizeVal" min="4" max="300" step="1" value="12" aria-label="大きさ（pt）">
+        <button class="ghost step" id="sizePlus" title="1pt大きく" aria-label="1pt大きく">＋</button>
+        pt
+      </span>
+    </div>
+    <label class="chk group" id="dateWrap" title="電子承認に今日の日付を入れる"><input type="checkbox" id="dateChk">日付つき</label>
+    <div class="sep"></div>
+    <button class="ghost" id="btnDelete" disabled title="選択中のものを削除（Delete）">削除</button>
+  </div>
+
+  <main id="mainZone">
+    <div id="canvasZone">
+      <div id="emptyState">
+        <p><strong>PDFを開いてください</strong><br>上のボタンでスタンプを選び、追記したい場所でクリックして下さい。ドラッグで位置も調整できます。</p>
+        <button class="primary" id="btnOpenEmpty">PDFを選択</button>
+      </div>
+      <div id="canvasStack" style="display:none;">
+        <canvas id="baseCanvas"></canvas>
+        <canvas id="overlayCanvas"></canvas>
+      </div>
+    </div>
+    <div id="hint"></div>
+    <div id="dropHint">ここにPDFをドロップ</div>
+    <div id="pageNav">
+      <button id="prevPage" aria-label="前のページ">◀</button>
+      <span id="pageLabel" class="navW">1 / 1</span>
+      <button id="nextPage" aria-label="次のページ">▶</button>
+      <span style="width:1px;height:14px;background:#7A6555;"></span>
+      <button id="zoomOut" aria-label="縮小">－</button>
+      <span id="zoomLabel" class="navW">100%</span>
+      <button id="zoomIn" aria-label="拡大">＋</button>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+function ensureFontkitLoaded() {
+  if (fontkitLoadPromise) return fontkitLoadPromise;
+  fontkitLoadPromise = (async () => {
+    const res = await fetch("https://cdn.jsdelivr.net/npm/fontkit@2.0.4/+esm");
+    if (!res.ok) throw new Error("fontkit fetch HTTP " + res.status);
+    let code = await res.text();
+    // jsdelivr's +esm output isn't fully self-contained — it still imports
+    // its own dependencies via root-relative paths like "/npm/xyz/+esm",
+    // meant to resolve against https://cdn.jsdelivr.net. A blob: URL has no
+    // such hierarchical base to resolve those against, so rewrite them to
+    // absolute URLs first.
+    code = code.replace(/(["'])(\/npm\/[^"']+)\1/g, (m, q, path) => q + "https://cdn.jsdelivr.net" + path + q);
+    const blob = new Blob([code], { type: "text/javascript" });
+    const blobUrl = URL.createObjectURL(blob);
+    let fontkitModule;
+    try {
+      fontkitModule = await import(/* webpackIgnore: true */ blobUrl);
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+    const rawFontkit = fontkitModule.default || fontkitModule;
+
+    function makeMiniEmitter() {
+      const listeners = {};
+      return {
+        on(event, cb) { (listeners[event] = listeners[event] || []).push(cb); return this; },
+        emit(event, ...args) { (listeners[event] || []).forEach(cb => cb(...args)); },
+      };
+    }
+
+    window.fontkit = {
+      create(buffer, postscriptName) {
+        const font = rawFontkit.create(buffer, postscriptName);
+        const origCreateSubset = font.createSubset.bind(font);
+        font.createSubset = function () {
+          const subset = origCreateSubset();
+          subset.encodeStream = function () {
+            const emitter = makeMiniEmitter();
+            Promise.resolve().then(() => {
+              try {
+                const bytes = subset.encode();
+                emitter.emit("data", bytes);
+                emitter.emit("end");
+              } catch (err) {
+                emitter.emit("error", err);
+              }
+            });
+            return emitter;
+          };
+          return subset;
+        };
+        return font;
+      },
+    };
+  })();
+  return fontkitLoadPromise;
+}
+</script>
+
+</script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const el = (id) => document.getElementById(id);
+
+// ---------- Settings ----------
+const COLORS = {
+  red:   { hex: "#D7261E", rgb: [0.843, 0.149, 0.118] },
+  black: { hex: "#1A1A1A", rgb: [0.10, 0.10, 0.10] },
+  blue:  { hex: "#1D4FC4", rgb: [0.114, 0.310, 0.769] },
+};
+const MARK_FONT = '"BIZ UDGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif';
+const TOOL_NAMES = { zumi: "済", maru: "〇", bar: "－", check: "レ", approve: "電子承認", text: "文字", erase: "消しゴム" };
+const STAMP_TOOLS = ["zumi", "maru", "bar", "check", "approve"];
+// Per-tool remembered size (pt) and color
+const toolSize = { zumi: 12, maru: 24, bar: 11, check: 9, approve: 17, text: 9 };
+const toolColor = { zumi: "black", maru: "black", bar: "black", check: "black", approve: "black", text: "black" };
+const ASCENT = 0.88;      // baseline offset (em) from top of line box
+const CJK_MID = 0.37;     // baseline offset (em) from visual center of a CJK glyph
+const LINE_H = 1.25;
+
+// ---------- State ----------
+let pdfBytes = null, pdfDoc = null, numPages = 0, currentPage = 1, currentFileName = "";
+let scale = 1.4, viewport = null;
+let items = [];           // {id,page,type,x,y,size,color,text?,date?}  x,y in page pts (top-left origin, as displayed)
+let nextId = 1;
+let tool = "zumi";
+let selectedId = null;
+let undoStack = [], redoStack = [];
+let drag = null;          // {id, offX, offY, moved, snapshot}
+let editing = null;
+
+// ---------- Geometry (display pt space) ----------
+const measureCtx = document.createElement("canvas").getContext("2d");
+function textWidth(str, size) {
+  measureCtx.font = `700 ${size}px ${MARK_FONT}`;
+  return measureCtx.measureText(str).width;
+}
+function todayStr() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+// Layout describes every primitive of an item in display pt coords, so the
+// on-screen preview and the PDF export are built from the exact same numbers.
+// measure(str,size) lets the export substitute the embedded font's metrics.
+function layout(it, measure = textWidth) {
+  const s = it.size, cx = it.x, cy = it.y;
+  const out = { fills: [], texts: [], lines: [], circles: [], box: null };
+  if (it.type === "zumi" || it.type === "check") {
+    const ch = it.type === "zumi" ? "済" : "レ";
+    const w = measure(ch, s);
+    out.texts.push({ str: ch, x: cx - w / 2, y: cy + s * CJK_MID, size: s });
+    out.box = { x: cx - s / 2, y: cy - s / 2, w: s, h: s };
+  } else if (it.type === "maru") {
+    const r = s / 2, lw = Math.max(0.8, s * 0.075);
+    out.circles.push({ cx, cy, r: r - lw / 2, lw });
+    out.box = { x: cx - r, y: cy - r, w: s, h: s };
+  } else if (it.type === "bar") {
+    const lw = Math.max(0.8, s * 0.08);
+    out.lines.push({ x1: cx - s / 2, y1: cy, x2: cx + s / 2, y2: cy, lw });
+    out.box = { x: cx - s / 2, y: cy - s * 0.25, w: s, h: s * 0.5 };
+  } else if (it.type === "approve") {
+    const f = s, pad = f * 0.38, lw = Math.max(0.8, f * 0.09);
+    const main = "電子承認";
+    const df = f * 0.62;
+    const mw = measure(main, f);
+    const dw = it.date ? measure(it.date, df) : 0;
+    const innerW = Math.max(mw, dw);
+    const innerH = it.date ? f * 1.15 + df : f;
+    const naturalW = innerW + pad * 2;
+    const bw = Math.max(naturalW, it.boxW || 0), bh = innerH + pad * 2;
+    out.naturalW = naturalW; out.lw = lw;
+    const bx = cx - bw / 2, by = cy - bh / 2;
+    out.fills.push({ x: bx, y: by, w: bw, h: bh, rgb: [1, 1, 1], hex: "#FFFFFF" }); // white background
+    out.texts.push({ str: main, x: cx - mw / 2, y: by + pad + f * ASCENT, size: f });
+    if (it.date) out.texts.push({ str: it.date, x: cx - dw / 2, y: by + pad + f * 1.15 + df * ASCENT, size: df });
+    const L = [[bx, by, bx + bw, by], [bx + bw, by, bx + bw, by + bh], [bx + bw, by + bh, bx, by + bh], [bx, by + bh, bx, by]];
+    L.forEach(([x1, y1, x2, y2]) => out.lines.push({ x1, y1, x2, y2, lw, square: true }));
+    out.box = { x: bx - lw / 2, y: by - lw / 2, w: bw + lw, h: bh + lw };
+  } else if (it.type === "erase") {
+    // white cover-up rectangle; x,y = top-left, w,h in pt
+    out.fills.push({ x: it.x, y: it.y, w: it.w, h: it.h, rgb: [1, 1, 1], hex: "#FFFFFF" });
+    out.box = { x: it.x, y: it.y, w: it.w, h: it.h };
+  } else if (it.type === "text") {
+    const lines = (it.text || "").split("\n");
+    let maxW = 0;
+    lines.forEach((ln, i) => {
+      const w = measure(ln, s);
+      maxW = Math.max(maxW, w);
+      if (ln !== "") out.texts.push({ str: ln, x: it.x, y: it.y + s * ASCENT + i * s * LINE_H, size: s });
+    });
+    out.box = { x: it.x, y: it.y, w: Math.max(maxW, s), h: s * LINE_H * (lines.length - 1) + s };
+  }
+  return out;
+}
+
+function drawItem(ctx, it, k) {
+  // ctx is in display px; k = px per pt
+  const lay = layout(it);
+  const col = (COLORS[it.color] || COLORS.black).hex;
+  lay.fills.forEach(f => { ctx.fillStyle = f.hex; ctx.fillRect(f.x * k, f.y * k, f.w * k, f.h * k); });
+  ctx.fillStyle = col; ctx.strokeStyle = col;
+  lay.texts.forEach(t => {
+    ctx.font = `700 ${t.size * k}px ${MARK_FONT}`;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(t.str, t.x * k, t.y * k);
+  });
+  lay.lines.forEach(l => {
+    ctx.lineWidth = l.lw * k; ctx.lineCap = l.square ? "square" : "butt";
+    ctx.beginPath(); ctx.moveTo(l.x1 * k, l.y1 * k); ctx.lineTo(l.x2 * k, l.y2 * k); ctx.stroke();
+  });
+  lay.circles.forEach(c => {
+    ctx.lineWidth = c.lw * k;
+    ctx.beginPath(); ctx.arc(c.cx * k, c.cy * k, c.r * k, 0, Math.PI * 2); ctx.stroke();
+  });
+  return lay;
+}
+
+// ---------- Undo ----------
+function snapshot() { return JSON.stringify({ items, nextId }); }
+function pushUndo(snap) {
+  undoStack.push(snap || snapshot());
+  if (undoStack.length > 200) undoStack.shift();
+  redoStack = [];
+  updateButtons();
+}
+function restore(s) { const o = JSON.parse(s); items = o.items; nextId = o.nextId; selectedId = null; }
+function undo() {
+  if (editing) cancelEditor();
+  if (!undoStack.length) return;
+  redoStack.push(snapshot()); restore(undoStack.pop()); syncControls(); redraw(); updateButtons();
+}
+function redo() {
+  if (editing) cancelEditor();
+  if (!redoStack.length) return;
+  undoStack.push(snapshot()); restore(redoStack.pop()); syncControls(); redraw(); updateButtons();
+}
+el("btnUndo").addEventListener("click", undo);
+el("btnRedo").addEventListener("click", redo);
+
+function updateButtons() {
+  el("btnUndo").disabled = !undoStack.length;
+  el("btnRedo").disabled = !redoStack.length;
+  el("btnSave").disabled = !pdfBytes;
+  el("btnDelete").disabled = !selectedId;
+}
+
+// ---------- Tool UI ----------
+function currentTarget() { return items.find(i => i.id === selectedId) || null; }
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll(".tool").forEach(b => b.classList.toggle("active", b.dataset.tool === t));
+  if (t !== "select") selectedId = null;
+  syncControls();
+  redraw();
+  updateCursor();
+  showHint();
+}
+function syncControls() {
+  const sel = currentTarget();
+  const key = sel ? sel.type : (tool === "select" ? null : tool);
+  const size = sel ? sel.size : (key ? toolSize[key] : 18);
+  const color = sel ? sel.color : (key ? toolColor[key] : "black");
+  el("sizeSlider").value = Math.round(size);
+  el("sizeVal").value = Math.round(size);
+  document.querySelectorAll(".swatch").forEach(b => b.classList.toggle("active", b.dataset.color === color));
+  const showDate = (sel && sel.type === "approve") || (!sel && tool === "approve");
+  el("dateWrap").style.display = showDate ? "inline-flex" : "none";
+  if (sel && sel.type === "approve") el("dateChk").checked = !!sel.date;
+  const isErase = key === "erase";
+  el("colorGroup").classList.toggle("off", isErase);
+  el("sizeGroup").classList.toggle("off", isErase);
+  updateButtons();
+}
+function showHint() {
+  const h = el("hint");
+  if (!pdfBytes) { h.style.display = "none"; return; }
+  let msg;
+  if (tool === "select") msg = "ドラッグで移動／四隅の□で大きさ変更／ダブルクリックで文字を編集／Deleteで削除";
+  else if (tool === "text") msg = "書き込みたい場所をクリックして入力（Ctrl+Enterで確定）";
+  else if (tool === "erase") msg = "消したい範囲をドラッグで囲むと白で塗りつぶします。四隅の□で範囲を調整";
+  else msg = `クリックで「${TOOL_NAMES[tool]}」を押す。押したスタンプはドラッグで移動、四隅の□で大きさ変更${tool === "approve" ? "、左右の□で横だけ伸ばす" : ""}`;
+  h.textContent = msg; h.style.display = "block";
+}
+// Clicking the stamp that is already active turns it off (back to 選択 mode).
+document.querySelectorAll(".tool").forEach(b => b.addEventListener("click", () => {
+  const t = b.dataset.tool;
+  setTool(t === tool && t !== "select" ? "select" : t);
+}));
+document.querySelectorAll(".swatch").forEach(b => b.addEventListener("click", () => {
+  const c = b.dataset.color, sel = currentTarget();
+  if ((sel && sel.type === "erase") || (!sel && tool === "erase")) return;
+  if (sel) { if (sel.color !== c) { pushUndo(); sel.color = c; } toolColor[sel.type] = c; }
+  else if (tool !== "select") toolColor[tool] = c;
+  syncControls(); redraw();
+}));
+let sliderSnap = null;
+el("sizeSlider").addEventListener("pointerdown", () => { sliderSnap = snapshot(); });
+el("sizeSlider").addEventListener("input", () => {
+  const v = +el("sizeSlider").value, sel = currentTarget();
+  el("sizeVal").value = v;
+  if (sel) {
+    if (!sliderSnap) sliderSnap = snapshot();
+    // keep text anchored at top-left, stamps at their center
+    sel.size = v; toolSize[sel.type] = v;
+  } else if (tool !== "select") toolSize[tool] = v;
+  redraw();
+});
+el("sizeSlider").addEventListener("change", () => {
+  if (sliderSnap && currentTarget()) { pushUndo(sliderSnap); }
+  sliderSnap = null;
+});
+// Exact size changes: −/＋ buttons (1pt steps) and typing a number directly.
+function setSizeExact(v) {
+  v = Math.max(4, Math.min(300, Math.round(v)));
+  const sel = currentTarget();
+  el("sizeSlider").value = v; el("sizeVal").value = v;
+  if (sel) { if (sel.size !== v) { pushUndo(); sel.size = v; } toolSize[sel.type] = v; }
+  else if (tool !== "select") toolSize[tool] = v;
+  redraw();
+}
+function stepSize(d) { setSizeExact((+el("sizeVal").value || 0) + d); }
+el("sizeMinus").addEventListener("click", () => stepSize(-1));
+el("sizePlus").addEventListener("click", () => stepSize(1));
+el("sizeVal").addEventListener("change", () => setSizeExact(+el("sizeVal").value || 4));
+el("sizeVal").addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Enter") { setSizeExact(+el("sizeVal").value || 4); el("sizeVal").blur(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); stepSize(1); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); stepSize(-1); }
+});
+// mouse wheel over the slider or number also steps 1pt
+[el("sizeSlider"), el("sizeVal")].forEach(n => n.addEventListener("wheel", (e) => {
+  e.preventDefault(); stepSize(e.deltaY < 0 ? 1 : -1);
+}, { passive: false }));
+el("dateChk").addEventListener("change", () => {
+  const sel = currentTarget();
+  if (sel && sel.type === "approve") { pushUndo(); sel.date = el("dateChk").checked ? todayStr() : null; redraw(); }
+});
+el("btnDelete").addEventListener("click", deleteSelected);
+function deleteSelected() {
+  if (!selectedId) return;
+  pushUndo();
+  items = items.filter(i => i.id !== selectedId);
+  selectedId = null; syncControls(); redraw();
+}
+
+// ---------- PDF loading & rendering ----------
+el("btnOpen").addEventListener("click", () => el("fileInput").click());
+el("btnOpenEmpty").addEventListener("click", () => el("fileInput").click());
+el("fileInput").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) loadPdf(f); e.target.value = ""; });
+
+async function loadPdf(file) {
+  if (items.length && !confirm("書き込んだ内容は破棄されます。別のPDFを開きますか？")) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const doc = await pdfjsLib.getDocument({
+      data: buf.slice(0),
+      cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+      cMapPacked: true,
+      standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/",
+    }).promise;
+    pdfBytes = buf; pdfDoc = doc; numPages = doc.numPages; currentPage = 1; currentFileName = file.name;
+    items = []; nextId = 1; undoStack = []; redoStack = []; selectedId = null;
+    el("fileLabel").textContent = file.name;
+    el("emptyState").style.display = "none";
+    el("canvasStack").style.display = "block";
+    el("pageNav").style.display = "flex";
+    await fitWidth();
+    await renderPage();
+    syncControls(); showHint();
+  } catch (err) {
+    console.error(err);
+    toast("PDFを開けませんでした。ファイルが壊れていないか確認してください。", true);
+  }
+}
+
+async function fitWidth() {
+  const page = await pdfDoc.getPage(currentPage);
+  const vp = page.getViewport({ scale: 1 });
+  const avail = el("canvasZone").clientWidth - 80;
+  scale = Math.min(2.5, Math.max(0.4, avail / vp.width));
+}
+
+let renderTask = null;
+async function renderPage() {
+  if (!pdfDoc) return;
+  const page = await pdfDoc.getPage(currentPage);
+  viewport = page.getViewport({ scale });
+  const dpr = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
+  const maxDim = 5000;
+  let q = dpr;
+  if (viewport.width * q > maxDim || viewport.height * q > maxDim) q = maxDim / Math.max(viewport.width, viewport.height);
+  const base = el("baseCanvas"), ov = el("overlayCanvas");
+  [base, ov].forEach(c => {
+    c.width = Math.floor(viewport.width * q); c.height = Math.floor(viewport.height * q);
+    c.style.width = viewport.width + "px"; c.style.height = viewport.height + "px";
+  });
+  ov._q = q;
+  redraw();
+  if (renderTask) { try { renderTask.cancel(); } catch (e) {} }
+  const ctx = base.getContext("2d");
+  ctx.setTransform(q, 0, 0, q, 0, 0);
+  renderTask = page.render({ canvasContext: ctx, viewport });
+  try { await renderTask.promise; } catch (e) { /* cancelled */ }
+  el("pageLabel").textContent = `${currentPage} / ${numPages}`;
+  el("zoomLabel").textContent = Math.round(scale * 100) + "%";
+  el("prevPage").disabled = currentPage <= 1;
+  el("nextPage").disabled = currentPage >= numPages;
+}
+
+function redraw() {
+  const ov = el("overlayCanvas");
+  if (!viewport) return;
+  const ctx = ov.getContext("2d"), q = ov._q || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  ctx.setTransform(q, 0, 0, q, 0, 0);
+  pageItems(currentPage).forEach(it => {
+    if (editing && editing.id === it.id) return;
+    const lay = drawItem(ctx, it, scale);
+    if (it.type === "erase" && it.id !== selectedId) {
+      // faint outline on screen only (not saved) so the white area can be found again
+      ctx.save(); ctx.setLineDash([2, 3]); ctx.lineWidth = 1; ctx.strokeStyle = "rgba(120,120,120,0.55)";
+      ctx.strokeRect(it.x * scale, it.y * scale, it.w * scale, it.h * scale); ctx.restore();
+    }
+    if (it.id === selectedId) {
+      const b = lay.box, p = 4;
+      ctx.save();
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = "#2E93CC";
+      ctx.strokeRect(b.x * scale - p, b.y * scale - p, b.w * scale + p * 2, b.h * scale + p * 2);
+      ctx.setLineDash([]);
+      handlePositions(it).forEach(hp => {
+        ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = "#2E93CC"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.rect(hp.sx - HANDLE_PX / 2, hp.sy - HANDLE_PX / 2, HANDLE_PX, HANDLE_PX);
+        ctx.fill(); ctx.stroke();
+      });
+      ctx.restore();
+    }
+  });
+}
+
+el("prevPage").addEventListener("click", () => { if (currentPage > 1) { currentPage--; selectedId = null; renderPage(); syncControls(); } });
+el("nextPage").addEventListener("click", () => { if (currentPage < numPages) { currentPage++; selectedId = null; renderPage(); syncControls(); } });
+el("zoomIn").addEventListener("click", () => zoomTo(scale * 1.2));
+el("zoomOut").addEventListener("click", () => zoomTo(scale / 1.2));
+let zoomTimer = null;
+function zoomTo(s) {
+  scale = Math.min(5, Math.max(0.3, s));
+  clearTimeout(zoomTimer);
+  zoomTimer = setTimeout(renderPage, 60);
+}
+el("canvasZone").addEventListener("wheel", (e) => {
+  if (!pdfDoc || !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  zoomTo(scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+}, { passive: false });
+
+// ---------- Pointer interaction ----------
+const ov = el("overlayCanvas");
+function ptFromEvent(e) {
+  const r = ov.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+}
+// erase rectangles first, then stamps/text in the order they were added
+function pageItems(page) {
+  const list = items.filter(i => i.page === page);
+  return list.filter(i => i.type === "erase").concat(list.filter(i => i.type !== "erase"));
+}
+function hitTest(p, accept) {
+  const list = pageItems(currentPage).filter(i => !accept || accept(i));
+  for (let i = list.length - 1; i >= 0; i--) {
+    const b = layout(list[i]).box, pad = 4 / scale;
+    if (p.x >= b.x - pad && p.x <= b.x + b.w + pad && p.y >= b.y - pad && p.y <= b.y + b.h + pad) return list[i];
+  }
+  return null;
+}
+// ---------- Resize handles (4 corners of the selection box) ----------
+const HANDLE_PX = 10, SEL_PAD = 4;
+function handlePositions(it) {
+  const b = layout(it).box;
+  const L = b.x * scale - SEL_PAD, T = b.y * scale - SEL_PAD;
+  const R = (b.x + b.w) * scale + SEL_PAD, B = (b.y + b.h) * scale + SEL_PAD;
+  // each handle remembers the opposite corner (in pt) which stays fixed while resizing
+  return [
+    { sx: L, sy: T, ax: b.x + b.w, ay: b.y + b.h, cur: "nwse-resize" },
+    { sx: R, sy: T, ax: b.x,       ay: b.y + b.h, cur: "nesw-resize" },
+    { sx: R, sy: B, ax: b.x,       ay: b.y,       cur: "nwse-resize" },
+    { sx: L, sy: B, ax: b.x + b.w, ay: b.y,       cur: "nesw-resize" },
+  ].concat(it.type === "approve" ? [
+    // left / right edge midpoints: stretch width only (文字の大きさはそのまま)
+    { sx: L, sy: (T + B) / 2, side: -1, cur: "ew-resize" },
+    { sx: R, sy: (T + B) / 2, side: 1,  cur: "ew-resize" },
+  ] : []);
+}
+function handleAt(p, pointerType) {
+  const it = currentTarget();
+  if (!it || it.page !== currentPage) return null;
+  const tol = (pointerType === "touch" ? 18 : 9);
+  const sx = p.x * scale, sy = p.y * scale;
+  const h = handlePositions(it).find(hp => Math.abs(hp.sx - sx) <= tol && Math.abs(hp.sy - sy) <= tol);
+  return h ? { it, h } : null;
+}
+// Position of the anchor corner for a given item state
+function anchorOf(it, corner) {
+  const b = layout(it).box;
+  return { x: corner.fx ? b.x + b.w : b.x, y: corner.fy ? b.y + b.h : b.y };
+}
+function applyResize(p) {
+  const r = drag.resize, it = items.find(i => i.id === drag.id);
+  if (!it) return;
+  const d0 = Math.hypot(r.startX - r.ax, r.startY - r.ay) || 1;
+  const d1 = Math.hypot(p.x - r.ax, p.y - r.ay);
+  const newSize = Math.max(4, Math.min(300, r.size0 * d1 / d0));
+  it.size = newSize; it.x = r.x0; it.y = r.y0;
+  if (r.boxW0) it.boxW = r.boxW0 * newSize / r.size0;
+  // shift so the opposite corner stays where it was
+  const a = anchorOf(it, r.corner);
+  it.x += r.ax - a.x; it.y += r.ay - a.y;
+  toolSize[it.type] = Math.round(newSize);
+  el("sizeSlider").value = Math.round(newSize);
+  el("sizeVal").value = Math.round(newSize);
+}
+
+function applyStretch(p) {
+  const s = drag.stretch, it = items.find(i => i.id === drag.id);
+  if (!it) return;
+  const edge = p.x - s.side * SEL_PAD / scale;          // handle sits SEL_PAD outside the box
+  const fixed = s.side > 0 ? s.left : s.right;          // the opposite edge stays put
+  const natural = layout({ ...it, boxW: 0 }).naturalW;
+  const bw = Math.max(natural, Math.abs(edge - fixed) - s.lw);
+  it.boxW = bw <= natural + 0.01 ? 0 : bw;
+  const total = Math.max(natural, bw) + s.lw;
+  it.x = s.side > 0 ? fixed + total / 2 : fixed - total / 2;
+}
+
+function updateCursor(hover) {
+  if (hover && hover.cur) { ov.style.cursor = hover.cur; return; }
+  if (hover && tool !== "text") { ov.style.cursor = "move"; return; }
+  if (tool === "select") ov.style.cursor = "default";
+  else if (tool === "text") ov.style.cursor = "text";
+  else ov.style.cursor = "crosshair";
+}
+
+ov.addEventListener("pointerdown", (e) => {
+  if (!pdfDoc || e.button > 0) return;
+  if (editing) { commitEditor(); return; }
+  const p = ptFromEvent(e);
+  const hh = handleAt(p, e.pointerType);
+  if (hh) {
+    const { it, h } = hh, b = layout(it).box;
+    if (h.side) {
+      const lay = layout(it);
+      drag = {
+        id: it.id, moved: false, snap: snapshot(),
+        stretch: { side: h.side, left: b.x, right: b.x + b.w, lw: lay.lw },
+      };
+      ov.setPointerCapture(e.pointerId);
+      return;
+    }
+    if (it.type === "erase") {
+      // free width/height: opposite corner stays fixed
+      drag = { id: it.id, moved: false, snap: snapshot(), rect: { x0: h.ax, y0: h.ay } };
+      ov.setPointerCapture(e.pointerId);
+      return;
+    }
+    drag = {
+      id: it.id, moved: false, snap: snapshot(),
+      resize: {
+        startX: h.sx / scale, startY: h.sy / scale, ax: h.ax, ay: h.ay,
+        corner: { fx: h.ax > b.x + b.w / 2, fy: h.ay > b.y + b.h / 2 },
+        size0: it.size, x0: it.x, y0: it.y, boxW0: it.boxW || 0,
+      },
+    };
+    ov.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (tool === "select") {
+    const hit = hitTest(p);
+    selectedId = hit ? hit.id : null;
+    if (hit) drag = { id: hit.id, offX: p.x - hit.x, offY: p.y - hit.y, moved: false, snap: snapshot() };
+    syncControls(); redraw();
+  } else if (tool === "erase") {
+    const hit = hitTest(p, i => i.type === "erase");
+    if (hit) {
+      selectedId = hit.id;
+      drag = { id: hit.id, offX: p.x - hit.x, offY: p.y - hit.y, moved: false, snap: snapshot() };
+    } else {
+      const it = { id: nextId++, page: currentPage, type: "erase", x: p.x, y: p.y, w: 0, h: 0, size: 0, color: "white" };
+      items.push(it);
+      selectedId = it.id;
+      drag = { id: it.id, moved: false, snap: snapshot(), draw: { x0: p.x, y0: p.y } };
+      drag.snap = JSON.stringify({ items: items.filter(i => i.id !== it.id), nextId }); // state before this rectangle
+    }
+    syncControls(); redraw();
+  } else if (tool === "text") {
+    e.preventDefault(); // stop the click from pulling focus away from the new text box
+    const hit = hitTest(p, i => i.type !== "erase");
+    if (hit && hit.type === "text") { openEditor(hit, false); return; }
+    const s = toolSize.text;
+    const it = { id: nextId++, page: currentPage, type: "text", x: p.x, y: p.y - s * 0.6, size: s, color: toolColor.text, text: "" };
+    openEditor(it, true);
+    return;
+  } else {
+    // Clicking on a stamp that's already there grabs it (move) instead of stamping a duplicate.
+    // White erase areas are ignored here so you can stamp on top of them.
+    const hit = hitTest(p, i => i.type !== "erase");
+    if (hit) {
+      selectedId = hit.id;
+      drag = { id: hit.id, offX: p.x - hit.x, offY: p.y - hit.y, moved: false, snap: snapshot() };
+      syncControls(); redraw();
+      ov.setPointerCapture(e.pointerId);
+      return;
+    }
+    const snap = snapshot();
+    const it = { id: nextId++, page: currentPage, type: tool, x: p.x, y: p.y, size: toolSize[tool], color: toolColor[tool] };
+    if (tool === "approve" && el("dateChk").checked) it.date = todayStr();
+    items.push(it);
+    pushUndo(snap);
+    selectedId = it.id;
+    drag = { id: it.id, offX: 0, offY: 0, moved: true, snap: null };
+    syncControls(); redraw();
+  }
+  if (drag) ov.setPointerCapture(e.pointerId);
+});
+ov.addEventListener("pointermove", (e) => {
+  if (!pdfDoc) return;
+  const p = ptFromEvent(e);
+  if (!drag) {
+    const hh = handleAt(p, e.pointerType);
+    if (hh) updateCursor({ cur: hh.h.cur });
+    else if (tool === "erase") ov.style.cursor = hitTest(p, i => i.type === "erase") ? "move" : "crosshair";
+    else updateCursor(tool !== "text" ? !!hitTest(p, tool === "select" ? null : (i => i.type !== "erase")) : false);
+    return;
+  }
+  if (drag.draw || drag.rect) {
+    const it = items.find(i => i.id === drag.id);
+    const o = drag.draw || drag.rect;
+    if (it) {
+      it.x = Math.min(o.x0, p.x); it.y = Math.min(o.y0, p.y);
+      it.w = Math.abs(p.x - o.x0); it.h = Math.abs(p.y - o.y0);
+    }
+    drag.moved = true; redraw(); return;
+  }
+  if (drag.resize) { drag.moved = true; applyResize(p); redraw(); return; }
+  if (drag.stretch) { drag.moved = true; applyStretch(p); redraw(); return; }
+  const it = items.find(i => i.id === drag.id);
+  if (!it) return;
+  it.x = p.x - drag.offX; it.y = p.y - drag.offY;
+  if (!drag.moved) drag.moved = true;
+  redraw();
+});
+function endDrag() {
+  if (!drag) return;
+  const it = items.find(i => i.id === drag.id);
+  if (drag.draw && it && (it.w < 2 || it.h < 2)) {
+    // just a click, not a drag: nothing to erase
+    items = items.filter(i => i.id !== it.id);
+    selectedId = null; drag = null; syncControls(); redraw(); return;
+  }
+  if (it && it.type === "erase" && drag.rect) { it.w = Math.max(it.w, 2); it.h = Math.max(it.h, 2); }
+  if (drag.snap && drag.moved && it) pushUndo(drag.snap);
+  drag = null;
+  // the just-placed stamp stays selected so its corner handles can be dragged right away
+  syncControls(); redraw();
+}
+ov.addEventListener("pointerup", endDrag);
+ov.addEventListener("pointercancel", endDrag);
+ov.addEventListener("dblclick", (e) => {
+  const hit = hitTest(ptFromEvent(e));
+  if (hit && hit.type === "text") openEditor(hit, false);
+});
+
+// ---------- Free text editor ----------
+function openEditor(it, isNew) {
+  editing = { id: it.id, isNew, item: it, snap: snapshot() };
+  selectedId = null; redraw();
+  const ta = document.createElement("textarea");
+  ta.className = "textEditor";
+  ta.value = it.text || "";
+  ta.style.left = (it.x * scale - 2) + "px";
+  ta.style.top = (it.y * scale - 2) + "px";
+  ta.style.fontSize = (it.size * scale) + "px";
+  ta.style.color = (COLORS[it.color] || COLORS.black).hex;
+  const grow = () => {
+    const lines = ta.value.split("\n");
+    const w = Math.max(...lines.map(l => textWidth(l || " ", it.size))) * scale;
+    ta.style.width = Math.max(w + it.size * scale * 1.2, 60) + "px";
+    ta.style.height = (lines.length * it.size * scale * LINE_H + 4) + "px";
+  };
+  ta.addEventListener("input", grow);
+  ta.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") { cancelEditor(); }
+    else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEditor(); }
+  });
+  const openedAt = performance.now();
+  ta.addEventListener("blur", () => setTimeout(() => {
+    if (!editing || editing.ta !== ta) return;
+    // a blur in the same instant the box opened comes from the opening click itself
+    if (performance.now() - openedAt < 300) { ta.focus(); return; }
+    commitEditor();
+  }, 0));
+  el("canvasStack").appendChild(ta);
+  editing.ta = ta;
+  grow();
+  ta.focus();
+  setTimeout(() => ta.focus(), 0);
+}
+function closeEditorEl() { if (editing && editing.ta) editing.ta.remove(); }
+function commitEditor() {
+  if (!editing) return;
+  const { item, isNew, snap, ta } = editing;
+  const txt = ta.value.replace(/\s+$/, "");
+  closeEditorEl(); editing = null;
+  if (isNew) {
+    if (txt) { item.text = txt; items.push(item); pushUndo(snap); }
+  } else {
+    if (!txt) { items = items.filter(i => i.id !== item.id); pushUndo(snap); }
+    else if (txt !== item.text) { item.text = txt; pushUndo(snap); }
+  }
+  redraw();
+}
+function cancelEditor() { closeEditorEl(); editing = null; redraw(); }
+
+// ---------- Keyboard ----------
+document.addEventListener("keydown", (e) => {
+  if (editing || e.target.tagName === "INPUT") return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (mod && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); if (pdfBytes) savePdf(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) { e.preventDefault(); deleteSelected(); }
+  else if (e.key === "Escape") setTool("select");
+  else if (!mod && /^[1-7]$/.test(e.key)) {
+    const t = ["zumi", "maru", "bar", "check", "approve", "text", "erase"][+e.key - 1];
+    setTool(t === tool ? "select" : t);
+  }
+  else if (selectedId && e.key.startsWith("Arrow")) {
+    e.preventDefault();
+    const it = currentTarget(), d = (e.shiftKey ? 5 : 0.5);
+    pushUndo();
+    if (e.key === "ArrowLeft") it.x -= d; if (e.key === "ArrowRight") it.x += d;
+    if (e.key === "ArrowUp") it.y -= d; if (e.key === "ArrowDown") it.y += d;
+    redraw();
+  }
+});
+
+// ---------- Drag & drop ----------
+let dragDepth = 0;
+const mainZone = el("mainZone");
+mainZone.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; el("dropHint").style.display = "flex"; });
+mainZone.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; el("dropHint").style.display = "none"; } });
+mainZone.addEventListener("dragover", (e) => e.preventDefault());
+mainZone.addEventListener("drop", (e) => {
+  e.preventDefault(); dragDepth = 0; el("dropHint").style.display = "none";
+  const f = [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
+  if (f) loadPdf(f);
+});
+
+// ---------- Save ----------
+el("btnSave").addEventListener("click", savePdf);
+
+async function loadJpFont(doc) {
+  const candidates = [
+    { url: "https://raw.githubusercontent.com/googlefonts/morisawa-biz-ud-gothic/main/fonts/ttf/BIZUDGothic-Bold.ttf", subset: true },
+    { url: "https://cdn.jsdelivr.net/gh/googlefonts/morisawa-biz-ud-gothic@main/fonts/ttf/BIZUDGothic-Bold.ttf", subset: true },
+  ];
+  await ensureFontkitLoaded();
+  doc.registerFontkit(window.fontkit);
+  for (const c of candidates) {
+    try {
+      const res = await fetch(c.url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await doc.embedFont(await res.arrayBuffer(), { subset: c.subset });
+    } catch (err) { console.warn("font failed", c.url, err); }
+  }
+  throw new Error("日本語フォントを取得できませんでした");
+}
+
+// Render one item into a crisp PNG (fallback when the Japanese font can't be loaded).
+function itemToPng(it) {
+  const b = layout(it).box, k = 8, pad = 2;
+  const c = document.createElement("canvas");
+  c.width = Math.ceil((b.w + pad * 2) * k); c.height = Math.ceil((b.h + pad * 2) * k);
+  const ctx = c.getContext("2d");
+  ctx.translate((pad - b.x) * k, (pad - b.y) * k);
+  drawItem(ctx, it, k);
+  return { dataUrl: c.toDataURL("image/png"), x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
+}
+
+let saving = false;
+function saveFileName() {
+  // drop any earlier "_YY.MM.DD追記" suffixes (and a browser-added " (1)") so only the latest date remains
+  const base = currentFileName.replace(/\.pdf$/i, "").replace(/\s*[(（]\d+[)）]$/, "").replace(/(_\d{2}\.\d{2}\.\d{2}追記)+$/, "") || "document";
+  const d = new Date(), p2 = (n) => String(n).padStart(2, "0");
+  const stamp = `${p2(d.getFullYear() % 100)}.${p2(d.getMonth() + 1)}.${p2(d.getDate())}`; // 例: 26.10.27
+  return `${base}_${stamp}追記.pdf`;
+}
+
+async function savePdf() {
+  if (!pdfBytes || saving) return;
+  if (editing) commitEditor();
+  saving = true;
+  const btn = el("btnSave"), label = btn.textContent;
+  btn.disabled = true; btn.textContent = "保存中...";
+  try {
+    const { PDFDocument, rgb, degrees, LineCapStyle } = PDFLib;
+    const doc = await PDFDocument.load(pdfBytes.slice(0));
+    const pages = doc.getPages();
+    const needsFont = items.some(i => ["zumi", "check", "approve", "text"].includes(i.type));
+    let font = null, useImages = false;
+    if (needsFont) {
+      try { font = await loadJpFont(doc); } catch (err) { console.warn(err); useImages = true; }
+    }
+    const ordered = items.filter(i => i.type === "erase").concat(items.filter(i => i.type !== "erase"));
+    for (const it of ordered) {
+      const page = pages[it.page - 1];
+      if (!page) continue;
+      const pj = await pdfDoc.getPage(it.page);
+      const vp1 = pj.getViewport({ scale: 1 });
+      const toPdf = (x, y) => { const [px, py] = vp1.convertToPdfPoint(x, y); return { x: px, y: py }; };
+      const rot = page.getRotation().angle || 0;
+      const c = COLORS[it.color] || COLORS.black;
+      const color = rgb(...c.rgb);
+
+      if (useImages && !["maru", "bar", "erase"].includes(it.type)) {
+        const img = itemToPng(it);
+        const png = await doc.embedPng(img.dataUrl);
+        const a = toPdf(img.x, img.y + img.h); // display bottom-left
+        page.drawImage(png, { x: a.x, y: a.y, width: img.w, height: img.h, rotate: rot ? degrees(rot) : undefined });
+        continue;
+      }
+      const lay = layout(it, font ? (s, size) => font.widthOfTextAtSize(s, size) : textWidth);
+      lay.fills.forEach(f => {
+        // page rotations are multiples of 90°, so the box stays axis-aligned in PDF space
+        const p1 = toPdf(f.x, f.y), p2 = toPdf(f.x + f.w, f.y + f.h);
+        page.drawRectangle({
+          x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
+          width: Math.abs(p2.x - p1.x), height: Math.abs(p2.y - p1.y),
+          color: rgb(...f.rgb),
+        });
+      });
+      lay.texts.forEach(t => {
+        const a = toPdf(t.x, t.y);
+        page.drawText(t.str, { x: a.x, y: a.y, size: t.size, font, color, rotate: rot ? degrees(rot) : undefined });
+      });
+      lay.lines.forEach(l => {
+        page.drawLine({
+          start: toPdf(l.x1, l.y1), end: toPdf(l.x2, l.y2), thickness: l.lw, color,
+          lineCap: l.square ? LineCapStyle.Projecting : LineCapStyle.Butt,
+        });
+      });
+      lay.circles.forEach(ci => {
+        const ctr = toPdf(ci.cx, ci.cy);
+        page.drawEllipse({ x: ctr.x, y: ctr.y, xScale: ci.r, yScale: ci.r, borderColor: color, borderWidth: ci.lw });
+      });
+    }
+    const out = await doc.save();
+    const name = saveFileName();
+    const blob = new Blob([out], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
+    toast("ファイルが保存されました");
+  } catch (err) {
+    console.error(err);
+    toast("保存できませんでした: " + (err.message || err), true);
+  } finally {
+    saving = false; btn.textContent = label; updateButtons();
+  }
+}
+
+let toastTimer = null;
+function toast(msg, isErr) {
+  const t = el("toast");
+  t.textContent = msg; t.classList.toggle("err", !!isErr); t.style.display = "block";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.display = "none", isErr ? 6000 : 3500);
+}
+
+// Preview font must be ready before drawing, or stamps flash in a fallback face.
+document.fonts && document.fonts.load(`700 20px "BIZ UDGothic"`, "済レ電子承認0123").then(() => redraw()).catch(() => {});
+setTool("zumi");
+updateButtons();
+</script>
+</body>
+</html>
